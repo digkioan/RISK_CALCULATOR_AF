@@ -150,6 +150,42 @@ def apply_theme_css(theme: dict[str, str]) -> None:
     )
 
 
+def render_reference_table(title: str, rows: list[tuple[str, str]], theme: dict[str, str]) -> None:
+    """Render a small theme-safe reference table."""
+    body = "".join(
+        [
+            (
+                f"<tr>"
+                f"<td style='padding:0.45rem 0.6rem;border-bottom:1px solid {theme['border']};color:{theme['text']};'>{label}</td>"
+                f"<td style='padding:0.45rem 0.6rem;border-bottom:1px solid {theme['border']};color:{theme['text']};text-align:right;'>{value}</td>"
+                f"</tr>"
+            )
+            for label, value in rows
+        ]
+    )
+    st.markdown(
+        f"""
+        <div style="margin-top:0.25rem;">
+            <div style="font-size:0.92rem;font-weight:600;color:{theme['muted']};margin-bottom:0.45rem;">
+                {title}
+            </div>
+            <table style="width:100%;border-collapse:collapse;background:{theme['panel']};border:1px solid {theme['border']};border-radius:10px;overflow:hidden;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;padding:0.55rem 0.6rem;background:{theme['input_bg']};color:{theme['text']};border-bottom:1px solid {theme['border']};">Statistic</th>
+                        <th style="text-align:right;padding:0.55rem 0.6rem;background:{theme['input_bg']};color:{theme['text']};border-bottom:1px solid {theme['border']};">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {body}
+                </tbody>
+            </table>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def risk_band(five_year_risk: float) -> tuple[str, str, str]:
     """Map 5-year event risk to the configured categorical band."""
     for label, lower, upper, text_color, background in RISK_BANDS:
@@ -267,11 +303,17 @@ def render_survival_curve(prediction, theme: dict[str, str]) -> None:
             gridcolor="#e4e7ec",
             tickfont={"color": theme["plot_text"]},
             title_font={"color": theme["plot_text"]},
+            showline=True,
+            linecolor=theme["plot_text"],
+            zeroline=False,
         )
         figure.update_xaxes(
             gridcolor="#e4e7ec",
             tickfont={"color": theme["plot_text"]},
             title_font={"color": theme["plot_text"]},
+            showline=True,
+            linecolor=theme["plot_text"],
+            zeroline=False,
         )
         st.plotly_chart(figure, use_container_width=True)
         return
@@ -397,7 +439,7 @@ def render_raw_score_distribution(raw_score: float, theme: dict[str, str]) -> No
     st.caption("Approximate normal reference curve based on external training percentiles.")
 
 
-def render_technical_details(prediction, importance_table) -> None:
+def render_technical_details(prediction, importance_table, theme: dict[str, str]) -> None:
     """Expose technical details and training-distribution references."""
     with st.expander("Model Reference", expanded=False):
         st.markdown(
@@ -408,14 +450,10 @@ def render_technical_details(prediction, importance_table) -> None:
 
         raw_col, feature_col = st.columns([1, 1.2])
         with raw_col:
-            st.caption("External training distribution references for raw RSF score")
-            st.table(
-                pd.DataFrame(
-                    {
-                        "Statistic": list(TRAINING_REFERENCE_RAW_SCORE.keys()),
-                        "Value": [f"{value:.2f}" for value in TRAINING_REFERENCE_RAW_SCORE.values()],
-                    }
-                )
+            render_reference_table(
+                "External training distribution references for raw RSF score",
+                [(key, f"{value:.2f}") for key, value in TRAINING_REFERENCE_RAW_SCORE.items()],
+                theme,
             )
         with feature_col:
             st.caption("Exact model feature order")
@@ -432,14 +470,10 @@ def render_technical_details(prediction, importance_table) -> None:
                     ]
                 )
             )
-            st.caption("External training distribution references for 5-year risk")
-            st.table(
-                pd.DataFrame(
-                    {
-                        "Statistic": list(TRAINING_REFERENCE_5YR_RISK.keys()),
-                        "Value": [format_percent(value) for value in TRAINING_REFERENCE_5YR_RISK.values()],
-                    }
-                )
+            render_reference_table(
+                "External training distribution references for 5-year risk",
+                [(key, format_percent(value)) for key, value in TRAINING_REFERENCE_5YR_RISK.items()],
+                theme,
             )
 
 toggle_col, title_col = st.columns([0.18, 0.82])
@@ -558,4 +592,4 @@ with output_col:
             "individualized to the current patient."
         )
 
-    render_technical_details(prediction, importance_table)
+    render_technical_details(prediction, importance_table, theme)
